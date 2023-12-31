@@ -11,10 +11,18 @@ class MyGame extends Phaser.Scene {
     this.score;
     this.scoreText;
     this.velocityX = 300;
+    this.halfWidth;
+    this.pointer;
+    this.bgm;
   }
 
   preload() {
     //  This is an example of loading a static image from the public folder:
+    const elem = document.getElementById("asset-base-url");
+    if (elem) {
+      this.load.setBaseURL(elem.dataset.assetBaseUrl);
+    }
+    this.load.audio("bgm", "assets/bgm.mp3");
     this.load.image("background", "assets/blue_grass.png");
     this.load.image("grassLeft", "assets/grassLeft.png");
     this.load.image("grassMid", "assets/grassMid.png");
@@ -27,6 +35,8 @@ class MyGame extends Phaser.Scene {
   }
 
   create() {
+    this.bgm = this.sound.add("bgm");
+    this.bgm.play();
     this.add.image(
       this.cameras.main.centerX,
       this.cameras.main.centerY,
@@ -79,8 +89,39 @@ class MyGame extends Phaser.Scene {
       startCreateEvent.paused = true;
       this.player.setTint(0xff0000);
       this.player.anims.play("turn");
-      this.gameOver = true;
+      this.bgm.pause();
+      // 게임 오버 메시지 표시
+      console.log("게임 오버");
+      const gameOverText = this.add.text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY - 25,
+        "Game Over",
+        { fontSize: "48px", fill: "#f00" }
+      );
+      gameOverText.setOrigin(0.5, 0.5);
+
+      const finalScoreText = this.add.text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY + 15,
+        `Score: ${this.score}`,
+        { fontSize: "24px", fill: "#000" }
+      );
+      finalScoreText.setOrigin(0.5, 0.5);
+
+      // 다시하기 버튼 생성
+      const restartButton = this.add.text(
+        this.cameras.main.centerX,
+        this.cameras.main.centerY + 75,
+        "Restart",
+        { fontSize: "32px", fill: "#80be1f" }
+      );
+      restartButton.setOrigin(0.5, 0.5);
+      restartButton.setInteractive({ useHandCursor: true });
+      restartButton.on("pointerdown", () => {
+        this.scene.restart();
+      }); // 버튼 클릭 시 현재 씬 재시작
     }
+
     this.physics.add.collider(
       this.stars,
       this.platforms,
@@ -120,6 +161,25 @@ class MyGame extends Phaser.Scene {
       .setDepth(1);
 
     this.cursors = this.input.keyboard.createCursorKeys();
+
+    // 포인터 이벤트를 처리합니다.
+    this.halfWidth = this.sys.game.config.width / 2;
+    this.input.on("pointerdown", (_pointer) => {
+      this.pointer = _pointer;
+      if (this.pointer.x < this.halfWidth) {
+        this.player.anims.play("walk", true);
+        this.player.setFlipX(true);
+      } else {
+        this.player.anims.play("walk", true);
+        this.player.setFlipX(false);
+      }
+    });
+    // 포인터가 화면에서 떨어질 때의 이벤트를 처리합니다.
+    this.input.on("pointerup", () => {
+      this.pointer = null;
+      this.player.setVelocityX(0);
+      this.player.anims.play("turn");
+    });
   }
 
   update() {
@@ -131,6 +191,13 @@ class MyGame extends Phaser.Scene {
       this.player.setVelocityX(this.velocityX);
       this.player.anims.play("walk", true);
       this.player.setFlipX(false);
+    } else if (this.pointer && this.pointer.isDown) {
+      // 포인터가 화면에 닿아 있는 경우, 포인터 입력을 처리합니다.
+      if (this.pointer.x < this.halfWidth) {
+        this.player.setVelocityX(-this.velocityX);
+      } else {
+        this.player.setVelocityX(this.velocityX);
+      }
     } else {
       this.player.setVelocityX(0);
       this.player.anims.play("turn");
